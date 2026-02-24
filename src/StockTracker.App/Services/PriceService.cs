@@ -26,15 +26,10 @@ public class PriceService
             var json = await resp.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(json);
             var result = doc.RootElement.GetProperty("chart").GetProperty("result")[0];
-            var closes = result.GetProperty("indicators").GetProperty("quote")[0].GetProperty("close");
-
-            decimal? lastClose = null;
-            foreach (var item in closes.EnumerateArray())
-            {
-                if (item.ValueKind != JsonValueKind.Null)
-                    lastClose = item.GetDecimal();
-            }
-            return lastClose;
+            var meta = result.GetProperty("meta");
+            if (meta.TryGetProperty("regularMarketPrice", out var rmp))
+                return rmp.GetDecimal();
+            return null;
         }
         catch (Exception ex)
         {
