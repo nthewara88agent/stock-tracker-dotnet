@@ -2,8 +2,17 @@
 @inject PortfolioService Portfolio
 @inject DevUserService DevUser
 @inject CgtService CgtService
+@inject PriceCacheService PriceCache
 
-<MudText Typo="Typo.h4" Class="mb-4">CGT Report</MudText>
+<div class="d-flex align-center mb-4">
+    <MudText Typo="Typo.h4">CGT Report</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh"
+               OnClick="RefreshPrices" Disabled="_refreshing">
+        @if (_refreshing) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+        Refresh Prices
+    </MudButton>
+</div>
 
 @if (_loading)
 {
@@ -84,13 +93,30 @@ else if (_report != null)
 @code {
     private CgtReportDto? _report;
     private bool _loading = true;
+    private bool _refreshing = false;
+    private string _userId = "";
     private static readonly System.Globalization.CultureInfo _usCulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
 
     protected override async Task OnInitializedAsync()
     {
-        var userId = await DevUser.GetDevUserIdAsync();
-        _report = await Portfolio.GetCgtReport(userId, CgtService);
+        _userId = await DevUser.GetDevUserIdAsync();
+        _report = await Portfolio.GetCgtReport(_userId, CgtService);
+        if (_report.Holdings.Any() && _report.Holdings.All(h => h.CurrentPrice == h.BuyPrice))
+        {
+            await RefreshPrices();
+        }
         _loading = false;
+    }
+
+    private async Task RefreshPrices()
+    {
+        _refreshing = true;
+        StateHasChanged();
+        var holdings = await Portfolio.GetHoldings(_userId);
+        var tickers = holdings.Select(h => h.Ticker).Distinct();
+        await PriceCache.ForceRefreshAsync(tickers);
+        _report = await Portfolio.GetCgtReport(_userId, CgtService);
+        _refreshing = false;
     }
 
     private string RowStyle(CgtHoldingDto item, int index)
