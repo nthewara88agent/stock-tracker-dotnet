@@ -1,0 +1,44 @@
+<MudDialog>
+    <DialogContent>
+        <MudTextField @bind-Value="_ticker" Label="Ticker (e.g. CBA, BHP)" Class="mt-2" />
+        <MudDatePicker @bind-Date="_buyDate" Label="Buy Date" Class="mt-2" />
+        <MudNumericField @bind-Value="_quantity" Label="Quantity" Class="mt-2" />
+        <MudNumericField @bind-Value="_buyPrice" Label="Buy Price" Class="mt-2" Format="F2" />
+        <MudNumericField @bind-Value="_brokerage" Label="Brokerage" Class="mt-2" Format="F2" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Submit">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public HoldingDto? Holding { get; set; }
+
+    private string _ticker = "";
+    private DateTime? _buyDate = DateTime.Today;
+    private decimal _quantity;
+    private decimal _buyPrice;
+    private decimal _brokerage;
+
+    protected override void OnInitialized()
+    {
+        if (Holding != null)
+        {
+            _ticker = Holding.Ticker;
+            _buyDate = Holding.BuyDate;
+            _quantity = Holding.Quantity;
+            _buyPrice = Holding.BuyPrice;
+            _brokerage = Holding.Brokerage;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Submit()
+    {
+        var req = new CreateHoldingRequest(_ticker, _buyDate ?? DateTime.Today, _quantity, _buyPrice, _brokerage);
+        MudDialog.Close(DialogResult.Ok(req));
+    }
+}

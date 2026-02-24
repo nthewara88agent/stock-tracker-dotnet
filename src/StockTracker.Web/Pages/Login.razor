@@ -1,0 +1,53 @@
+@page "/login"
+@inject ApiClient Api
+@inject JwtAuthStateProvider AuthProvider
+@inject NavigationManager Nav
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+    <MudCard>
+        <MudCardContent>
+            <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-4">Stock Tracker</MudText>
+            <MudTabs @bind-ActivePanelIndex="_tabIndex" Centered="true">
+                <MudTabPanel Text="Login">
+                    <MudTextField @bind-Value="_loginEmail" Label="Email" Class="mt-4" />
+                    <MudTextField @bind-Value="_loginPassword" Label="Password" InputType="InputType.Password" Class="mt-2" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-4" OnClick="DoLogin">Login</MudButton>
+                </MudTabPanel>
+                <MudTabPanel Text="Register">
+                    <MudTextField @bind-Value="_regEmail" Label="Email" Class="mt-4" />
+                    <MudTextField @bind-Value="_regPassword" Label="Password" InputType="InputType.Password" Class="mt-2" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" FullWidth="true" Class="mt-4" OnClick="DoRegister">Register</MudButton>
+                </MudTabPanel>
+            </MudTabs>
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+            }
+        </MudCardContent>
+    </MudCard>
+</MudContainer>
+
+@code {
+    private int _tabIndex;
+    private string _loginEmail = "", _loginPassword = "";
+    private string _regEmail = "", _regPassword = "";
+    private string _error = "";
+
+    private async Task DoLogin()
+    {
+        _error = "";
+        var result = await Api.Login(_loginEmail, _loginPassword);
+        if (result == null) { _error = "Invalid credentials"; return; }
+        await AuthProvider.LoginAsync(result.Token);
+        Nav.NavigateTo("/", true);
+    }
+
+    private async Task DoRegister()
+    {
+        _error = "";
+        var result = await Api.Register(_regEmail, _regPassword);
+        if (result == null) { _error = "Registration failed"; return; }
+        await AuthProvider.LoginAsync(result.Token);
+        Nav.NavigateTo("/", true);
+    }
+}

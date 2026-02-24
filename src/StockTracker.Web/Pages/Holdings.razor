@@ -1,0 +1,95 @@
+@page "/holdings"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject ApiClient Api
+@inject IDialogService DialogService
+
+<MudText Typo="Typo.h4" Class="mb-4">Holdings</MudText>
+
+<MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mb-4" OnClick="OpenAddDialog">
+    Add Holding
+</MudButton>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudTable Items="@_holdings" Dense="true" Hover="true">
+        <HeaderContent>
+            <MudTh>Ticker</MudTh>
+            <MudTh>Buy Date</MudTh>
+            <MudTh>Quantity</MudTh>
+            <MudTh>Buy Price</MudTh>
+            <MudTh>Brokerage</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Ticker</MudTd>
+            <MudTd>@context.BuyDate.ToString("yyyy-MM-dd")</MudTd>
+            <MudTd>@context.Quantity</MudTd>
+            <MudTd>@context.BuyPrice.ToString("F2")</MudTd>
+            <MudTd>@context.Brokerage.ToString("F2")</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => OpenEditDialog(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => DeleteHolding(context.Id)" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private List<HoldingDto> _holdings = new();
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadHoldings();
+    }
+
+    private async Task LoadHoldings()
+    {
+        _loading = true;
+        _holdings = await Api.GetHoldings();
+        _loading = false;
+    }
+
+    private async Task OpenAddDialog()
+    {
+        var parameters = new DialogParameters();
+        var dialog = await DialogService.ShowAsync<HoldingDialog>("Add Holding", parameters);
+        var result = await dialog.Result;
+        if (result != null && !result.Canceled)
+        {
+            var data = (CreateHoldingRequest)result.Data!;
+            await Api.CreateHolding(data);
+            await LoadHoldings();
+        }
+    }
+
+    private async Task OpenEditDialog(HoldingDto holding)
+    {
+        var parameters = new DialogParameters
+        {
+            { "Holding", holding }
+        };
+        var dialog = await DialogService.ShowAsync<HoldingDialog>("Edit Holding", parameters);
+        var result = await dialog.Result;
+        if (result != null && !result.Canceled)
+        {
+            var data = (CreateHoldingRequest)result.Data!;
+            await Api.UpdateHolding(holding.Id, new UpdateHoldingRequest(data.Ticker, data.BuyDate, data.Quantity, data.BuyPrice, data.Brokerage));
+            await LoadHoldings();
+        }
+    }
+
+    private async Task DeleteHolding(int id)
+    {
+        var confirmed = await DialogService.ShowMessageBox("Delete", "Are you sure?", yesText: "Delete", cancelText: "Cancel");
+        if (confirmed == true)
+        {
+            await Api.DeleteHolding(id);
+            await LoadHoldings();
+        }
+    }
+}

@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: stocktracker
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: src/StockTracker.Api/Dockerfile
+    ports:
+      - "5010:5000"
+    environment:
+      ConnectionStrings__Default: "Host=db;Port=5432;Database=stocktracker;Username=postgres;Password=postgres"
+      Jwt__Key: "SuperSecretKeyThatIsAtLeast32CharactersLong!!"
+      Jwt__Issuer: "StockTracker"
+      Jwt__Audience: "StockTracker"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: src/StockTracker.Web/Dockerfile
+    ports:
+      - "5001:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

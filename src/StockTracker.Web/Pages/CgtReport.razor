@@ -1,0 +1,83 @@
+@page "/cgt"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject ApiClient Api
+
+<MudText Typo="Typo.h4" Class="mb-4">CGT Report</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_report != null)
+{
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" sm="3">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2">Total Capital Gains</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Success">@_report.TotalCapitalGains.ToString("C")</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="3">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2">Total Capital Losses</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Error">@_report.TotalCapitalLosses.ToString("C")</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="3">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2">Net Capital Gain</MudText>
+                    <MudText Typo="Typo.h5">@_report.NetCapitalGain.ToString("C")</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="3">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2">After 50% Discount</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Primary">@_report.DiscountedGain.ToString("C")</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+
+    <MudTable Items="@_report.Holdings" Dense="true" Hover="true">
+        <HeaderContent>
+            <MudTh>Ticker</MudTh>
+            <MudTh>Buy Date</MudTh>
+            <MudTh>Days Held</MudTh>
+            <MudTh>Qty</MudTh>
+            <MudTh>Buy Price</MudTh>
+            <MudTh>Current</MudTh>
+            <MudTh>Capital Gain</MudTh>
+            <MudTh>Discount</MudTh>
+            <MudTh>Taxable</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Ticker</MudTd>
+            <MudTd>@context.BuyDate.ToString("yyyy-MM-dd")</MudTd>
+            <MudTd>@context.DaysHeld</MudTd>
+            <MudTd>@context.Quantity</MudTd>
+            <MudTd>@context.BuyPrice.ToString("F2")</MudTd>
+            <MudTd>@context.CurrentPrice.ToString("F2")</MudTd>
+            <MudTd Style="@(context.CapitalGain >= 0 ? "color:green" : "color:red")">@context.CapitalGain.ToString("C")</MudTd>
+            <MudTd>@(context.EligibleForDiscount ? "Yes (50%)" : "No")</MudTd>
+            <MudTd>@context.DiscountedGain.ToString("C")</MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private CgtReportDto? _report;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _report = await Api.GetCgtReport();
+        _loading = false;
+    }
+}

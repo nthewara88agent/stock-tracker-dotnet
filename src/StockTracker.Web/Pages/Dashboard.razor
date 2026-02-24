@@ -1,0 +1,104 @@
+@page "/"
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@inject ApiClient Api
+
+<MudText Typo="Typo.h4" Class="mb-4">Dashboard</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_summary != null)
+{
+    <MudGrid>
+        <MudItem xs="12" sm="3">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2">Total Value</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Primary">@_summary.TotalValue.ToString("C")</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="3">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2">Total Cost</MudText>
+                    <MudText Typo="Typo.h5">@_summary.TotalCost.ToString("C")</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="3">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2">Total P&amp;L</MudText>
+                    <MudText Typo="Typo.h5" Color="@(_summary.TotalPnL >= 0 ? Color.Success : Color.Error)">
+                        @_summary.TotalPnL.ToString("C") (@_summary.TotalPnLPercent.ToString("F2")%)
+                    </MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" sm="3">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.subtitle2">Holdings</MudText>
+                    <MudText Typo="Typo.h5">@_summary.Holdings.Count</MudText>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+
+    <MudGrid Class="mt-4">
+        <MudItem xs="12" md="4">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.h6">Allocation</MudText>
+                    @if (_summary.Holdings.Any())
+                    {
+                        <MudChart ChartType="ChartType.Pie"
+                                  InputData="@_summary.Holdings.Select(h => (double)h.Allocation).ToArray()"
+                                  InputLabels="@_summary.Holdings.Select(h => h.Ticker).ToArray()"
+                                  Width="300px" Height="300px" />
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+        <MudItem xs="12" md="8">
+            <MudCard>
+                <MudCardContent>
+                    <MudText Typo="Typo.h6">Holdings</MudText>
+                    <MudTable Items="@_summary.Holdings" Dense="true" Hover="true">
+                        <HeaderContent>
+                            <MudTh>Ticker</MudTh>
+                            <MudTh>Qty</MudTh>
+                            <MudTh>Buy</MudTh>
+                            <MudTh>Current</MudTh>
+                            <MudTh>Value</MudTh>
+                            <MudTh>P&amp;L</MudTh>
+                            <MudTh>%</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.Ticker</MudTd>
+                            <MudTd>@context.Quantity</MudTd>
+                            <MudTd>@context.BuyPrice.ToString("F2")</MudTd>
+                            <MudTd>@context.CurrentPrice.ToString("F2")</MudTd>
+                            <MudTd>@context.MarketValue.ToString("C")</MudTd>
+                            <MudTd Style="@(context.PnL >= 0 ? "color:green" : "color:red")">@context.PnL.ToString("C")</MudTd>
+                            <MudTd>@context.PnLPercent.ToString("F2")%</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private PortfolioSummaryDto? _summary;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _summary = await Api.GetPortfolioSummary();
+        _loading = false;
+    }
+}
