@@ -4,15 +4,12 @@
 @inject CgtService CgtService
 @inject PriceCacheService PriceCache
 
-<div class="d-flex align-center mb-4">
-    <MudText Typo="Typo.h4">CGT Report</MudText>
-    <MudSpacer />
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh"
-               OnClick="RefreshPrices" Disabled="_refreshing" Size="Size.Small">
-        @if (_refreshing) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
-        Refresh Prices
-    </MudButton>
-</div>
+<MudText Typo="Typo.h4" Class="mb-4">CGT Report</MudText>
+
+<MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh"
+           OnClick="RefreshPrices" Disabled="_refreshing" Class="mb-4">
+    @(_refreshing ? "Refreshing..." : "Refresh Prices")
+</MudButton>
 
 @if (_loading)
 {
