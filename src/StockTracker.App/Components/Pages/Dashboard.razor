@@ -6,8 +6,8 @@
 <div class="d-flex align-center mb-4">
     <MudText Typo="Typo.h4">Dashboard</MudText>
     <MudSpacer />
-    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh"
-               OnClick="RefreshPrices" Disabled="_refreshing">
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh"
+               OnClick="RefreshPrices" Disabled="_refreshing" Size="Size.Small">
         @if (_refreshing) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
         Refresh Prices
     </MudButton>
