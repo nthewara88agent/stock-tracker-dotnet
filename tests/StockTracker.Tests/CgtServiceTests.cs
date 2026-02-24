@@ -1,3 +1,4 @@
+using Xunit;
 using StockTracker.App.Services;
 
 namespace StockTracker.Tests;
