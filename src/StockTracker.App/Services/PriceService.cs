@@ -18,7 +18,7 @@ public class PriceService
     {
         try
         {
-            var symbol = ticker.ToUpper().EndsWith(".AX") ? ticker.ToUpper() : $"{ticker.ToUpper()}.AX";
+            var symbol = ticker.ToUpper();
             var url = $"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?range=5d&interval=1d";
             var resp = await _http.GetAsync(url);
             if (!resp.IsSuccessStatusCode) return null;
