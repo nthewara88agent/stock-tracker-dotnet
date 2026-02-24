@@ -1,7 +1,8 @@
 @page "/holdings"
-@attribute [Microsoft.AspNetCore.Authorization.Authorize]
-@inject ApiClient Api
+@inject PortfolioService Portfolio
+@inject DevUserService DevUser
 @inject IDialogService DialogService
+@inject StockTracker.App.Data.AppDbContext Db
 
 <MudText Typo="Typo.h4" Class="mb-4">Holdings</MudText>
 
@@ -41,16 +42,18 @@ else
 @code {
     private List<HoldingDto> _holdings = new();
     private bool _loading = true;
+    private string _userId = "";
 
     protected override async Task OnInitializedAsync()
     {
+        _userId = await DevUser.GetDevUserIdAsync();
         await LoadHoldings();
     }
 
     private async Task LoadHoldings()
     {
         _loading = true;
-        _holdings = await Api.GetHoldings();
+        _holdings = await Portfolio.GetHoldings(_userId);
         _loading = false;
     }
 
@@ -62,23 +65,35 @@ else
         if (result != null && !result.Canceled)
         {
             var data = (CreateHoldingRequest)result.Data!;
-            await Api.CreateHolding(data);
+            var holding = new StockTracker.App.Models.Holding
+            {
+                UserId = _userId, Ticker = data.Ticker.ToUpper(), BuyDate = data.BuyDate,
+                Quantity = data.Quantity, BuyPrice = data.BuyPrice, Brokerage = data.Brokerage
+            };
+            Db.Holdings.Add(holding);
+            await Db.SaveChangesAsync();
             await LoadHoldings();
         }
     }
 
     private async Task OpenEditDialog(HoldingDto holding)
     {
-        var parameters = new DialogParameters
-        {
-            { "Holding", holding }
-        };
+        var parameters = new DialogParameters { { "Holding", holding } };
         var dialog = await DialogService.ShowAsync<HoldingDialog>("Edit Holding", parameters);
         var result = await dialog.Result;
         if (result != null && !result.Canceled)
         {
             var data = (CreateHoldingRequest)result.Data!;
-            await Api.UpdateHolding(holding.Id, new UpdateHoldingRequest(data.Ticker, data.BuyDate, data.Quantity, data.BuyPrice, data.Brokerage));
+            var entity = await Db.Holdings.FindAsync(holding.Id);
+            if (entity != null && entity.UserId == _userId)
+            {
+                entity.Ticker = data.Ticker.ToUpper();
+                entity.BuyDate = data.BuyDate;
+                entity.Quantity = data.Quantity;
+                entity.BuyPrice = data.BuyPrice;
+                entity.Brokerage = data.Brokerage;
+                await Db.SaveChangesAsync();
+            }
             await LoadHoldings();
         }
     }
@@ -88,7 +103,12 @@ else
         var confirmed = await DialogService.ShowMessageBox("Delete", "Are you sure?", yesText: "Delete", cancelText: "Cancel");
         if (confirmed == true)
         {
-            await Api.DeleteHolding(id);
+            var entity = await Db.Holdings.FindAsync(id);
+            if (entity != null && entity.UserId == _userId)
+            {
+                Db.Holdings.Remove(entity);
+                await Db.SaveChangesAsync();
+            }
             await LoadHoldings();
         }
     }

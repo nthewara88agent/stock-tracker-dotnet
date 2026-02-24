@@ -1,6 +1,6 @@
 using StockTracker.Shared.Dtos;
 
-namespace StockTracker.Api.Services;
+namespace StockTracker.App.Services;
 
 public class CgtService
 {
@@ -23,17 +23,10 @@ public class CgtService
 
             items.Add(new CgtHoldingDto
             {
-                HoldingId = h.Id,
-                Ticker = h.Ticker,
-                BuyDate = h.BuyDate,
-                Quantity = h.Quantity,
-                BuyPrice = h.BuyPrice,
-                CurrentPrice = h.CurrentPrice,
-                CapitalGain = capitalGain,
-                EligibleForDiscount = eligible,
-                DiscountedGain = discounted,
-                DaysHeld = daysHeld,
-                Brokerage = h.Brokerage
+                HoldingId = h.Id, Ticker = h.Ticker, BuyDate = h.BuyDate,
+                Quantity = h.Quantity, BuyPrice = h.BuyPrice, CurrentPrice = h.CurrentPrice,
+                CapitalGain = capitalGain, EligibleForDiscount = eligible,
+                DiscountedGain = discounted, DaysHeld = daysHeld, Brokerage = h.Brokerage
             });
         }
 
@@ -42,10 +35,8 @@ public class CgtService
 
         return new CgtReportDto
         {
-            TotalCapitalGains = totalGains,
-            TotalCapitalLosses = totalLosses,
-            NetCapitalGain = netGain,
-            DiscountedGain = Math.Max(0, totalDiscounted),
+            TotalCapitalGains = totalGains, TotalCapitalLosses = totalLosses,
+            NetCapitalGain = netGain, DiscountedGain = Math.Max(0, totalDiscounted),
             Holdings = items
         };
     }

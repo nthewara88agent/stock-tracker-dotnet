@@ -14,13 +14,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
-  api:
+  app:
     build:
       context: .
-      dockerfile: src/StockTracker.Api/Dockerfile
+      dockerfile: src/StockTracker.App/Dockerfile
     ports:
-      - "5010:5000"
+      - "5001:8080"
     environment:
       ConnectionStrings__Default: "Host=db;Port=5432;Database=stocktracker;Username=postgres;Password=postgres"
       Jwt__Key: "SuperSecretKeyThatIsAtLeast32CharactersLong!!"
@@ -30,15 +29,5 @@ services:
     depends_on:
       db:
         condition: service_healthy
-
-  web:
-    build:
-      context: .
-      dockerfile: src/StockTracker.Web/Dockerfile
-    ports:
-      - "5001:80"
-    depends_on:
-      - api
-
 volumes:
   pgdata:

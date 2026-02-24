@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using StockTracker.Api.Models;
+using StockTracker.App.Models;
 
-namespace StockTracker.Api.Data;
+namespace StockTracker.App.Data;
 
 public class AppDbContext : IdentityDbContext<AppUser>
 {

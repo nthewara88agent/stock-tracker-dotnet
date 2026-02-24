@@ -1,16 +1,31 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
-using StockTracker.Api.Auth;
-using StockTracker.Api.Data;
-using StockTracker.Api.Models;
-using StockTracker.Api.Services;
+using StockTracker.App.Auth;
+using StockTracker.App.Data;
+using StockTracker.App.Models;
+using StockTracker.App.Services;
+using StockTracker.App.Components;
 using StockTracker.Shared.Dtos;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using System.IO.Compression;
 using System.Text;
+using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Response compression
+builder.Services.AddResponseCompression(opts =>
+{
+    opts.EnableForHttps = true;
+    opts.MimeTypes = ResponseCompressionDefaults.MimeTypes;
+    opts.Providers.Add<BrotliCompressionProvider>();
+    opts.Providers.Add<GzipCompressionProvider>();
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(opts => opts.Level = CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(opts => opts.Level = CompressionLevel.Fastest);
 
 // Database
 builder.Services.AddDbContext<AppDbContext>(opt =>
@@ -27,7 +42,7 @@ builder.Services.AddIdentity<AppUser, IdentityRole>(opt =>
 .AddEntityFrameworkStores<AppDbContext>()
 .AddDefaultTokenProviders();
 
-// JWT
+// JWT (for API endpoints)
 var jwtKey = builder.Configuration["Jwt:Key"] ?? "SuperSecretKeyThatIsAtLeast32CharactersLong!!";
 builder.Services.AddAuthentication(opt =>
 {
@@ -53,10 +68,27 @@ builder.Services.AddAuthorization();
 builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddSingleton<CgtService>();
 builder.Services.AddHttpClient<PriceService>();
+builder.Services.AddSingleton<PriceCacheService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<PriceCacheService>());
+builder.Services.AddScoped<PortfolioService>();
+builder.Services.AddSingleton<DevUserService>();
 
-// CORS
+// MudBlazor
+builder.Services.AddMudServices();
+
+// Blazor Server
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
+
+// CORS (for API)
 builder.Services.AddCors(opt => opt.AddDefaultPolicy(p =>
     p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
+
+// Output caching
+builder.Services.AddOutputCache(opts =>
+{
+    opts.AddBasePolicy(b => b.Expire(TimeSpan.FromSeconds(5)));
+});
 
 var authDisabled = builder.Configuration.GetValue<bool>("AUTH_DISABLED");
 
@@ -80,24 +112,29 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+app.UseResponseCompression();
 app.UseCors();
+app.UseStaticFiles();
 
-// When AUTH_DISABLED, inject a fake dev user identity BEFORE auth middleware
+// When AUTH_DISABLED, inject a fake dev user identity for API endpoints
 if (authDisabled)
 {
     app.Use(async (context, next) =>
     {
-        using var scope = context.RequestServices.CreateScope();
-        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
-        var devUser = await userManager.FindByEmailAsync("dev@local");
-        if (devUser != null)
+        if (context.Request.Path.StartsWithSegments("/api"))
         {
-            var claims = new List<Claim>
+            using var scope = context.RequestServices.CreateScope();
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+            var devUser = await userManager.FindByEmailAsync("dev@local");
+            if (devUser != null)
             {
-                new(ClaimTypes.NameIdentifier, devUser.Id),
-                new(ClaimTypes.Email, devUser.Email!)
-            };
-            context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "DevAuth"));
+                var claims = new List<Claim>
+                {
+                    new(ClaimTypes.NameIdentifier, devUser.Id),
+                    new(ClaimTypes.Email, devUser.Email!)
+                };
+                context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "DevAuth"));
+            }
         }
         await next();
     });
@@ -105,6 +142,8 @@ if (authDisabled)
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseAntiforgery();
+app.UseOutputCache();
 
 // ===== Health =====
 app.MapGet("/api/health", () => Results.Ok(new { status = "healthy" }));
@@ -136,7 +175,7 @@ string GetUserId(ClaimsPrincipal user) => user.FindFirstValue(ClaimTypes.NameIde
 app.MapGet("/api/holdings", async (AppDbContext db, ClaimsPrincipal user) =>
 {
     var userId = GetUserId(user);
-    var holdings = await db.Holdings.Where(h => h.UserId == userId).ToListAsync();
+    var holdings = await db.Holdings.AsNoTracking().Where(h => h.UserId == userId).ToListAsync();
     return Results.Ok(holdings.Select(h => new HoldingDto
     {
         Id = h.Id, Ticker = h.Ticker, BuyDate = h.BuyDate,
@@ -188,115 +227,24 @@ app.MapDelete("/api/holdings/{id}", async (int id, AppDbContext db, ClaimsPrinci
     return Results.NoContent();
 }).RequireAuthorization();
 
-// ===== Prices =====
-app.MapPost("/api/prices/fetch", async (FetchPricesRequest req, PriceService priceService, AppDbContext db) =>
-{
-    var results = new Dictionary<string, decimal?>();
-    foreach (var ticker in req.Tickers)
-    {
-        var price = await priceService.GetLatestPrice(ticker);
-        results[ticker.ToUpper()] = price;
-        if (price.HasValue)
-        {
-            var existing = await db.PriceHistories
-                .FirstOrDefaultAsync(p => p.Ticker == ticker.ToUpper() && p.Date.Date == DateTime.UtcNow.Date);
-            if (existing == null)
-            {
-                db.PriceHistories.Add(new PriceHistory
-                {
-                    Ticker = ticker.ToUpper(), Date = DateTime.UtcNow.Date,
-                    Close = price.Value, Open = price.Value, High = price.Value, Low = price.Value
-                });
-            }
-            else
-            {
-                existing.Close = price.Value;
-            }
-        }
-    }
-    await db.SaveChangesAsync();
-    return Results.Ok(results);
-}).RequireAuthorization();
-
-app.MapGet("/api/prices/history/{ticker}", async (string ticker, AppDbContext db) =>
-{
-    var history = await db.PriceHistories
-        .Where(p => p.Ticker == ticker.ToUpper())
-        .OrderByDescending(p => p.Date)
-        .Take(365)
-        .Select(p => new PriceDto(p.Ticker, p.Date, p.Open, p.High, p.Low, p.Close, p.Volume))
-        .ToListAsync();
-    return Results.Ok(history);
-}).RequireAuthorization();
-
-// ===== Portfolio Summary =====
-app.MapGet("/api/portfolio/summary", async (AppDbContext db, ClaimsPrincipal user, PriceService priceService) =>
+// ===== Portfolio Summary (cached) =====
+app.MapGet("/api/portfolio/summary", async (AppDbContext db, ClaimsPrincipal user, PriceCacheService priceCache) =>
 {
     var userId = GetUserId(user);
-    var holdings = await db.Holdings.Where(h => h.UserId == userId).ToListAsync();
-    if (!holdings.Any()) return Results.Ok(new PortfolioSummaryDto());
-
-    var prices = new Dictionary<string, decimal>();
-    foreach (var ticker in holdings.Select(h => h.Ticker).Distinct())
-    {
-        var price = await priceService.GetLatestPrice(ticker);
-        if (price.HasValue) prices[ticker] = price.Value;
-    }
-
-    decimal totalValue = 0, totalCost = 0;
-    var summaries = new List<HoldingSummaryDto>();
-
-    foreach (var h in holdings)
-    {
-        var currentPrice = prices.GetValueOrDefault(h.Ticker, h.BuyPrice);
-        var costBasis = (h.BuyPrice * h.Quantity) + h.Brokerage;
-        var marketValue = currentPrice * h.Quantity;
-        totalValue += marketValue;
-        totalCost += costBasis;
-
-        summaries.Add(new HoldingSummaryDto
-        {
-            Id = h.Id, Ticker = h.Ticker, Quantity = h.Quantity,
-            BuyPrice = h.BuyPrice, CurrentPrice = currentPrice,
-            CostBasis = costBasis, MarketValue = marketValue,
-            PnL = marketValue - costBasis,
-            PnLPercent = costBasis != 0 ? ((marketValue - costBasis) / costBasis) * 100 : 0,
-            BuyDate = h.BuyDate, Brokerage = h.Brokerage
-        });
-    }
-
-    // Set allocation
-    var result = summaries.Select(s => s with { Allocation = totalValue != 0 ? (s.MarketValue / totalValue) * 100 : 0 }).ToList();
-
-    return Results.Ok(new PortfolioSummaryDto
-    {
-        TotalValue = totalValue, TotalCost = totalCost,
-        TotalPnL = totalValue - totalCost,
-        TotalPnLPercent = totalCost != 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0,
-        Holdings = result
-    });
-}).RequireAuthorization();
+    var portfolioService = new PortfolioService(db, priceCache);
+    return Results.Ok(await portfolioService.GetSummary(userId));
+}).RequireAuthorization().CacheOutput();
 
 // ===== CGT Report =====
-app.MapGet("/api/cgt/report", async (AppDbContext db, ClaimsPrincipal user, PriceService priceService, CgtService cgtService) =>
+app.MapGet("/api/cgt/report", async (AppDbContext db, ClaimsPrincipal user, PriceCacheService priceCache, CgtService cgtService) =>
 {
     var userId = GetUserId(user);
-    var holdings = await db.Holdings.Where(h => h.UserId == userId).ToListAsync();
-    if (!holdings.Any()) return Results.Ok(new CgtReportDto());
-
-    var prices = new Dictionary<string, decimal>();
-    foreach (var ticker in holdings.Select(h => h.Ticker).Distinct())
-    {
-        var price = await priceService.GetLatestPrice(ticker);
-        if (price.HasValue) prices[ticker] = price.Value;
-    }
-
-    var data = holdings.Select(h => (
-        h.Id, h.Ticker, h.BuyDate, h.Quantity, h.BuyPrice,
-        prices.GetValueOrDefault(h.Ticker, h.BuyPrice), h.Brokerage
-    )).ToList();
-
-    return Results.Ok(cgtService.Calculate(data));
+    var portfolioService = new PortfolioService(db, priceCache);
+    return Results.Ok(await portfolioService.GetCgtReport(userId, cgtService));
 }).RequireAuthorization();
+
+// ===== Blazor =====
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
 
 app.Run();

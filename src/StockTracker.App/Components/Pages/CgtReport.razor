@@ -1,6 +1,7 @@
 @page "/cgt"
-@attribute [Microsoft.AspNetCore.Authorization.Authorize]
-@inject ApiClient Api
+@inject PortfolioService Portfolio
+@inject DevUserService DevUser
+@inject CgtService CgtService
 
 <MudText Typo="Typo.h4" Class="mb-4">CGT Report</MudText>
 
@@ -15,7 +16,7 @@ else if (_report != null)
             <MudCard>
                 <MudCardContent>
                     <MudText Typo="Typo.subtitle2">Total Capital Gains</MudText>
-                    <MudText Typo="Typo.h5" Color="Color.Success">@_report.TotalCapitalGains.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Success">@_report.TotalCapitalGains.ToString("C", _usCulture)</MudText>
                 </MudCardContent>
             </MudCard>
         </MudItem>
@@ -23,7 +24,7 @@ else if (_report != null)
             <MudCard>
                 <MudCardContent>
                     <MudText Typo="Typo.subtitle2">Total Capital Losses</MudText>
-                    <MudText Typo="Typo.h5" Color="Color.Error">@_report.TotalCapitalLosses.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Error">@_report.TotalCapitalLosses.ToString("C", _usCulture)</MudText>
                 </MudCardContent>
             </MudCard>
         </MudItem>
@@ -31,7 +32,7 @@ else if (_report != null)
             <MudCard>
                 <MudCardContent>
                     <MudText Typo="Typo.subtitle2">Net Capital Gain</MudText>
-                    <MudText Typo="Typo.h5">@_report.NetCapitalGain.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</MudText>
+                    <MudText Typo="Typo.h5">@_report.NetCapitalGain.ToString("C", _usCulture)</MudText>
                 </MudCardContent>
             </MudCard>
         </MudItem>
@@ -39,7 +40,7 @@ else if (_report != null)
             <MudCard>
                 <MudCardContent>
                     <MudText Typo="Typo.subtitle2">After 50% Discount</MudText>
-                    <MudText Typo="Typo.h5" Color="Color.Primary">@_report.DiscountedGain.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Primary">@_report.DiscountedGain.ToString("C", _usCulture)</MudText>
                 </MudCardContent>
             </MudCard>
         </MudItem>
@@ -64,9 +65,9 @@ else if (_report != null)
             <MudTd>@context.Quantity</MudTd>
             <MudTd>@context.BuyPrice.ToString("F2")</MudTd>
             <MudTd>@context.CurrentPrice.ToString("F2")</MudTd>
-            <MudTd Style="@(context.CapitalGain >= 0 ? "color:green" : "color:red")">@context.CapitalGain.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</MudTd>
+            <MudTd Style="@(context.CapitalGain >= 0 ? "color:green" : "color:red")">@context.CapitalGain.ToString("C", _usCulture)</MudTd>
             <MudTd>@(context.EligibleForDiscount ? "Yes (50%)" : "No")</MudTd>
-            <MudTd>@context.DiscountedGain.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</MudTd>
+            <MudTd>@context.DiscountedGain.ToString("C", _usCulture)</MudTd>
         </RowTemplate>
     </MudTable>
 }
@@ -74,10 +75,12 @@ else if (_report != null)
 @code {
     private CgtReportDto? _report;
     private bool _loading = true;
+    private static readonly System.Globalization.CultureInfo _usCulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
 
     protected override async Task OnInitializedAsync()
     {
-        _report = await Api.GetCgtReport();
+        var userId = await DevUser.GetDevUserIdAsync();
+        _report = await Portfolio.GetCgtReport(userId, CgtService);
         _loading = false;
     }
 }

@@ -2,9 +2,9 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
-using StockTracker.Api.Models;
+using StockTracker.App.Models;
 
-namespace StockTracker.Api.Auth;
+namespace StockTracker.App.Auth;
 
 public class JwtTokenService
 {

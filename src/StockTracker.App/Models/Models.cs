@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 
-namespace StockTracker.Api.Models;
+namespace StockTracker.App.Models;
 
 public class AppUser : IdentityUser { }
 
