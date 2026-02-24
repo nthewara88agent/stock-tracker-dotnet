@@ -58,21 +58,56 @@ builder.Services.AddHttpClient<PriceService>();
 builder.Services.AddCors(opt => opt.AddDefaultPolicy(p =>
     p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
 
+var authDisabled = builder.Configuration.GetValue<bool>("AUTH_DISABLED");
+
 var app = builder.Build();
 
-// Auto-migrate
+// Auto-migrate + seed dev user
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
+
+    if (authDisabled)
+    {
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+        var devUser = await userManager.FindByEmailAsync("dev@local");
+        if (devUser == null)
+        {
+            devUser = new AppUser { UserName = "dev@local", Email = "dev@local" };
+            await userManager.CreateAsync(devUser, "Dev123!");
+        }
+    }
 }
 
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// When AUTH_DISABLED, inject a fake dev user identity for all requests
+if (authDisabled)
+{
+    app.Use(async (context, next) =>
+    {
+        using var scope = context.RequestServices.CreateScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+        var devUser = await userManager.FindByEmailAsync("dev@local");
+        if (devUser != null)
+        {
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.NameIdentifier, devUser.Id),
+                new(ClaimTypes.Email, devUser.Email!)
+            };
+            context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "DevAuth"));
+        }
+        await next();
+    });
+}
+
 // ===== Health =====
 app.MapGet("/api/health", () => Results.Ok(new { status = "healthy" }));
+app.MapGet("/api/auth/status", () => Results.Ok(new { authDisabled }));
 
 // ===== Auth Endpoints =====
 app.MapPost("/api/auth/register", async (RegisterRequest req, UserManager<AppUser> userManager, JwtTokenService jwt) =>

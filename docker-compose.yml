@@ -26,6 +26,7 @@ services:
       Jwt__Key: "SuperSecretKeyThatIsAtLeast32CharactersLong!!"
       Jwt__Issuer: "StockTracker"
       Jwt__Audience: "StockTracker"
+      AUTH_DISABLED: "true"
     depends_on:
       db:
         condition: service_healthy

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Net.Http.Json;
 using System.Text.Json;
 using Blazored.LocalStorage;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -9,6 +10,7 @@ public class JwtAuthStateProvider : AuthenticationStateProvider
 {
     private readonly ILocalStorageService _localStorage;
     private readonly HttpClient _http;
+    private bool? _authDisabled;
 
     public JwtAuthStateProvider(ILocalStorageService localStorage, HttpClient http)
     {
@@ -18,14 +20,37 @@ public class JwtAuthStateProvider : AuthenticationStateProvider
 
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
+        // Check if auth is disabled on the API
+        if (_authDisabled == null)
+        {
+            try
+            {
+                var resp = await _http.GetFromJsonAsync<JsonElement>("/api/auth/status");
+                _authDisabled = resp.GetProperty("authDisabled").GetBoolean();
+            }
+            catch { _authDisabled = false; }
+        }
+
+        if (_authDisabled == true)
+        {
+            // Return an authenticated identity so AuthorizeRouteView lets us through
+            var claims = new List<Claim>
+            {
+                new(ClaimTypes.Name, "dev@local"),
+                new(ClaimTypes.Email, "dev@local"),
+                new(ClaimTypes.NameIdentifier, "dev")
+            };
+            return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity(claims, "DevAuth")));
+        }
+
         var token = await _localStorage.GetItemAsStringAsync("authToken");
         if (string.IsNullOrWhiteSpace(token))
             return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
 
         token = token.Trim('"');
         _http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-        var claims = ParseClaimsFromJwt(token);
-        var identity = new ClaimsIdentity(claims, "jwt");
+        var jwtClaims = ParseClaimsFromJwt(token);
+        var identity = new ClaimsIdentity(jwtClaims, "jwt");
         return new AuthenticationState(new ClaimsPrincipal(identity));
     }
 
