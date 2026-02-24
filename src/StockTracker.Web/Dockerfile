@@ -5,8 +5,8 @@ COPY src/StockTracker.Web/StockTracker.Web.csproj src/StockTracker.Web/
 
 # Create a simple static file host project
 RUN mkdir -p src/StockTracker.WebHost && \
-    printf '<Project Sdk="Microsoft.NET.Sdk.Web">\n  <PropertyGroup>\n    <TargetFramework>net9.0</TargetFramework>\n    <ImplicitUsings>enable</ImplicitUsings>\n  </PropertyGroup>\n</Project>\n' > src/StockTracker.WebHost/StockTracker.WebHost.csproj && \
-    printf 'var builder = WebApplication.CreateBuilder(args);\nvar app = builder.Build();\napp.UseStaticFiles();\napp.MapFallbackToFile("index.html");\napp.Run();\n' > src/StockTracker.WebHost/Program.cs
+    printf '<Project Sdk="Microsoft.NET.Sdk.Web">\n  <PropertyGroup>\n    <TargetFramework>net9.0</TargetFramework>\n    <ImplicitUsings>enable</ImplicitUsings>\n  </PropertyGroup>\n  <ItemGroup>\n    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="9.0.0" />\n  </ItemGroup>\n</Project>\n' > src/StockTracker.WebHost/StockTracker.WebHost.csproj && \
+    printf 'var builder = WebApplication.CreateBuilder(args);\nvar app = builder.Build();\napp.UseBlazorFrameworkFiles();\napp.UseStaticFiles();\napp.UseRouting();\napp.MapFallbackToFile("index.html");\napp.Run();\n' > src/StockTracker.WebHost/Program.cs
 
 RUN dotnet restore src/StockTracker.Web/StockTracker.Web.csproj
 RUN dotnet restore src/StockTracker.WebHost/StockTracker.WebHost.csproj
