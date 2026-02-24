@@ -25,7 +25,7 @@ public class PortfolioService
         if (!holdings.Any()) return new PortfolioSummaryDto();
 
         var tickers = holdings.Select(h => h.Ticker).Distinct();
-        var prices = await _priceCache.GetPricesAsync(tickers);
+        var prices = _priceCache.GetCachedPrices(tickers);
 
         decimal totalValue = 0, totalCost = 0;
         var summaries = new List<HoldingSummaryDto>();
@@ -83,7 +83,7 @@ public class PortfolioService
         if (!holdings.Any()) return new CgtReportDto();
 
         var tickers = holdings.Select(h => h.Ticker).Distinct();
-        var prices = await _priceCache.GetPricesAsync(tickers);
+        var prices = _priceCache.GetCachedPrices(tickers);
 
         var data = holdings.Select(h => (
             h.Id, h.Ticker, h.BuyDate, h.Quantity, h.BuyPrice,

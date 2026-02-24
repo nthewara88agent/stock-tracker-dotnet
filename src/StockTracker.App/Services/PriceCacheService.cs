@@ -31,6 +31,30 @@ public class PriceCacheService : BackgroundService
         _cache[ticker.ToUpper()] = (price, DateTime.UtcNow);
     }
 
+    public Dictionary<string, decimal> GetCachedPrices(IEnumerable<string> tickers)
+    {
+        var result = new Dictionary<string, decimal>();
+        foreach (var t in tickers.Select(t => t.ToUpper()).Distinct())
+        {
+            var cached = GetCachedPrice(t);
+            if (cached.HasValue)
+                result[t] = cached.Value;
+        }
+        return result;
+    }
+
+    public async Task ForceRefreshAsync(IEnumerable<string> tickers)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var priceService = scope.ServiceProvider.GetRequiredService<PriceService>();
+        var tasks = tickers.Select(t => t.ToUpper()).Distinct().Select(async ticker =>
+        {
+            var price = await priceService.GetLatestPrice(ticker);
+            if (price.HasValue) SetPrice(ticker, price.Value);
+        });
+        await Task.WhenAll(tasks);
+    }
+
     public async Task<Dictionary<string, decimal>> GetPricesAsync(IEnumerable<string> tickers)
     {
         var result = new Dictionary<string, decimal>();
@@ -72,42 +96,9 @@ public class PriceCacheService : BackgroundService
         return result;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken ct)
+    protected override Task ExecuteAsync(CancellationToken ct)
     {
-        // Wait a bit before first refresh
-        await Task.Delay(TimeSpan.FromSeconds(30), ct);
-
-        while (!ct.IsCancellationRequested)
-        {
-            try
-            {
-                // Get all tickers from DB
-                using var scope = _scopeFactory.CreateScope();
-                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                var tickers = await db.Holdings
-                    .AsNoTracking()
-                    .Select(h => h.Ticker)
-                    .Distinct()
-                    .ToListAsync(ct);
-
-                if (tickers.Count > 0)
-                {
-                    var priceService = scope.ServiceProvider.GetRequiredService<PriceService>();
-                    var tasks = tickers.Select(async ticker =>
-                    {
-                        var price = await priceService.GetLatestPrice(ticker);
-                        if (price.HasValue) SetPrice(ticker, price.Value);
-                    });
-                    await Task.WhenAll(tasks);
-                    _logger.LogInformation("Refreshed prices for {Count} tickers", tickers.Count);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Price cache refresh failed");
-            }
-
-            await Task.Delay(TimeSpan.FromMinutes(CacheTtlMinutes), ct);
-        }
+        // Background refresh disabled — prices only update via manual "Refresh Prices" button
+        return Task.CompletedTask;
     }
 }
