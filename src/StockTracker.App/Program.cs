@@ -14,6 +14,9 @@ using System.IO.Compression;
 using System.Text;
 using MudBlazor.Services;
 
+// Tell Npgsql to accept DateTime.Local as UTC (Identity uses DateTime.Now internally)
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Response compression
