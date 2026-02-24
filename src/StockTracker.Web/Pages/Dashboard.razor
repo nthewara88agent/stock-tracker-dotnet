@@ -15,7 +15,7 @@ else if (_summary != null)
             <MudCard>
                 <MudCardContent>
                     <MudText Typo="Typo.subtitle2">Total Value</MudText>
-                    <MudText Typo="Typo.h5" Color="Color.Primary">@_summary.TotalValue.ToString("C")</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Primary">@_summary.TotalValue.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</MudText>
                 </MudCardContent>
             </MudCard>
         </MudItem>
@@ -23,7 +23,7 @@ else if (_summary != null)
             <MudCard>
                 <MudCardContent>
                     <MudText Typo="Typo.subtitle2">Total Cost</MudText>
-                    <MudText Typo="Typo.h5">@_summary.TotalCost.ToString("C")</MudText>
+                    <MudText Typo="Typo.h5">@_summary.TotalCost.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</MudText>
                 </MudCardContent>
             </MudCard>
         </MudItem>
@@ -32,7 +32,7 @@ else if (_summary != null)
                 <MudCardContent>
                     <MudText Typo="Typo.subtitle2">Total P&amp;L</MudText>
                     <MudText Typo="Typo.h5" Color="@(_summary.TotalPnL >= 0 ? Color.Success : Color.Error)">
-                        @_summary.TotalPnL.ToString("C") (@_summary.TotalPnLPercent.ToString("F2")%)
+                        @_summary.TotalPnL.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-US")) (@_summary.TotalPnLPercent.ToString("F2")%)
                     </MudText>
                 </MudCardContent>
             </MudCard>
@@ -81,8 +81,8 @@ else if (_summary != null)
                             <MudTd>@context.Quantity</MudTd>
                             <MudTd>@context.BuyPrice.ToString("F2")</MudTd>
                             <MudTd>@context.CurrentPrice.ToString("F2")</MudTd>
-                            <MudTd>@context.MarketValue.ToString("C")</MudTd>
-                            <MudTd Style="@(context.PnL >= 0 ? "color:green" : "color:red")">@context.PnL.ToString("C")</MudTd>
+                            <MudTd>@context.MarketValue.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</MudTd>
+                            <MudTd Style="@(context.PnL >= 0 ? "color:green" : "color:red")">@context.PnL.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</MudTd>
                             <MudTd>@context.PnLPercent.ToString("F2")%</MudTd>
                         </RowTemplate>
                     </MudTable>
