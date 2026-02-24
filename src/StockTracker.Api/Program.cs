@@ -81,10 +81,8 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseCors();
-app.UseAuthentication();
-app.UseAuthorization();
 
-// When AUTH_DISABLED, inject a fake dev user identity for all requests
+// When AUTH_DISABLED, inject a fake dev user identity BEFORE auth middleware
 if (authDisabled)
 {
     app.Use(async (context, next) =>
@@ -104,6 +102,9 @@ if (authDisabled)
         await next();
     });
 }
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 // ===== Health =====
 app.MapGet("/api/health", () => Results.Ok(new { status = "healthy" }));
