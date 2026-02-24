@@ -46,11 +46,11 @@ else if (_report != null)
         </MudItem>
     </MudGrid>
 
-    <MudTable Items="@_report.Holdings" Dense="true" Hover="true">
+    <MudTable Items="@_report.Holdings" Dense="true" Hover="true" RowStyleFunc="@RowStyle">
         <HeaderContent>
             <MudTh>Ticker</MudTh>
             <MudTh>Buy Date</MudTh>
-            <MudTh>Days Held</MudTh>
+            <MudTh>CGT Days Remaining</MudTh>
             <MudTh>Qty</MudTh>
             <MudTh>Buy Price</MudTh>
             <MudTh>Current</MudTh>
@@ -61,7 +61,16 @@ else if (_report != null)
         <RowTemplate>
             <MudTd>@context.Ticker</MudTd>
             <MudTd>@context.BuyDate.ToString("yyyy-MM-dd")</MudTd>
-            <MudTd>@context.DaysHeld</MudTd>
+            <MudTd>
+                @if (context.EligibleForDiscount)
+                {
+                    <MudChip T="string" Color="Color.Success" Size="Size.Small">Eligible ✓</MudChip>
+                }
+                else
+                {
+                    <span>@context.CgtDaysRemaining days</span>
+                }
+            </MudTd>
             <MudTd>@context.Quantity</MudTd>
             <MudTd>@context.BuyPrice.ToString("F2")</MudTd>
             <MudTd>@context.CurrentPrice.ToString("F2")</MudTd>
@@ -82,5 +91,12 @@ else if (_report != null)
         var userId = await DevUser.GetDevUserIdAsync();
         _report = await Portfolio.GetCgtReport(userId, CgtService);
         _loading = false;
+    }
+
+    private string RowStyle(CgtHoldingDto item, int index)
+    {
+        if (item.EligibleForDiscount)
+            return "background: rgba(76, 175, 80, 0.12);";
+        return "";
     }
 }

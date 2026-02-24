@@ -16,6 +16,7 @@ public class CgtService
             var capitalGain = marketValue - costBasis;
             var daysHeld = (DateTime.UtcNow - h.BuyDate).Days;
             var eligible = daysHeld > 365;
+            var cgtDaysRemaining = eligible ? 0 : 365 - daysHeld;
             var discounted = capitalGain > 0 && eligible ? capitalGain * 0.5m : capitalGain > 0 ? capitalGain : 0;
 
             if (capitalGain > 0) totalGains += capitalGain;
@@ -26,7 +27,7 @@ public class CgtService
                 HoldingId = h.Id, Ticker = h.Ticker, BuyDate = h.BuyDate,
                 Quantity = h.Quantity, BuyPrice = h.BuyPrice, CurrentPrice = h.CurrentPrice,
                 CapitalGain = capitalGain, EligibleForDiscount = eligible,
-                DiscountedGain = discounted, DaysHeld = daysHeld, Brokerage = h.Brokerage
+                DiscountedGain = discounted, DaysHeld = daysHeld, CgtDaysRemaining = cgtDaysRemaining, Brokerage = h.Brokerage
             });
         }
 

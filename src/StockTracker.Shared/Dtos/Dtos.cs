@@ -65,6 +65,7 @@ public record CgtHoldingDto
     public bool EligibleForDiscount { get; init; }
     public decimal DiscountedGain { get; init; }
     public int DaysHeld { get; init; }
+    public int CgtDaysRemaining { get; init; }
     public decimal Brokerage { get; init; }
 }
 

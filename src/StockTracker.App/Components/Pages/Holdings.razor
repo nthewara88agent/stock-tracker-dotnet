@@ -3,6 +3,7 @@
 @inject DevUserService DevUser
 @inject IDialogService DialogService
 @inject StockTracker.App.Data.AppDbContext Db
+@inject ILogger<Holdings> Logger
 
 <MudText Typo="Typo.h4" Class="mb-4">Holdings</MudText>
 
@@ -62,9 +63,10 @@ else
         var parameters = new DialogParameters();
         var dialog = await DialogService.ShowAsync<HoldingDialog>("Add Holding", parameters);
         var result = await dialog.Result;
-        if (result != null && !result.Canceled)
+        Logger.LogInformation("Dialog result: Canceled={Canceled}, Data={Data}", result?.Canceled, result?.Data?.GetType().Name);
+        if (result != null && !result.Canceled && result.Data is CreateHoldingRequest data)
         {
-            var data = (CreateHoldingRequest)result.Data!;
+            Logger.LogInformation("Saving holding: {Ticker} qty={Qty} price={Price}", data.Ticker, data.Quantity, data.BuyPrice);
             var holding = new StockTracker.App.Models.Holding
             {
                 UserId = _userId, Ticker = data.Ticker.ToUpper(), BuyDate = data.BuyDate,
