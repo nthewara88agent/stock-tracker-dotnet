@@ -112,6 +112,11 @@ else if (_summary != null)
     {
         _userId = await DevUser.GetDevUserIdAsync();
         _summary = await Portfolio.GetSummary(_userId);
+        // Auto-fetch prices on first load if any holdings have no cached price
+        if (_summary.Holdings.Any() && _summary.Holdings.All(h => h.CurrentPrice == h.BuyPrice))
+        {
+            await RefreshPrices();
+        }
         _loading = false;
     }
 
@@ -119,7 +124,9 @@ else if (_summary != null)
     {
         _refreshing = true;
         StateHasChanged();
-        var tickers = _summary?.Holdings.Select(h => h.Ticker) ?? Enumerable.Empty<string>();
+        // Get tickers from DB directly
+        var holdings = await Portfolio.GetHoldings(_userId);
+        var tickers = holdings.Select(h => h.Ticker).Distinct();
         await PriceCache.ForceRefreshAsync(tickers);
         _summary = await Portfolio.GetSummary(_userId);
         _refreshing = false;
